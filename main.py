@@ -4,13 +4,14 @@ import sys
 
 import settings
 from lib.lf_engine import LoaferEngine
-from lib.utils import url_parser, get_vt_siblings
+from lib.utils import url_parser, get_vt_siblings_url, get_urls_from_vt
 
 
 class LOAFER(LoaferEngine):
     def __init__(self, target, debug_level, follow_redirect=True):
         LoaferEngine.__init__(self, target, debug_level, follow_redirect)
         self.rq = self.normal_request()
+        self.log = logging.getLogger('LOAFER')
 
     def normal_request(self):
         return self.lf_request()
@@ -18,15 +19,27 @@ class LOAFER(LoaferEngine):
     def custom_request(self, headers=None):
         return self.lf_request(headers=headers)
 
-    def siblings_request(self):
-        (hostname, _, path, _, _)=url_parser(self.target)
-        self.target = get_vt_siblings(hostname, 10, '40')
-
+    def siblings_request(self, num, cursor):
+        (hostname, _, path, _, _) = url_parser(self.target)
+        # 要请求的url，由target生成
+        url = get_vt_siblings_url(hostname, num, cursor)
+        self.log.info('[*] vt-api-v3-req：%s' % url)
         headers = {
             "x-apikey": settings.VT_API_KEY,
             'Accept': 'application/json',
         }
-        return self.lf_request(headers=headers)
+        return self.lf_request(headers=headers, url=url)
+
+# 返回vt同级域名结果
+    def vt_sibling_res(self):
+        urls = []
+        for i in [1, 40, 80]:
+            print('请求第{}-{}条数据' .format(i, 99if((i + 40) > 99)else(i + 40)))
+            res = self.siblings_request(40, str(i)).text
+            self.log.debug(res)
+            urls += get_urls_from_vt(res)
+        print("共%d条结果" % len(urls))
+        return urls
 
 
 def calc_logging_level(verbosity):
@@ -37,7 +50,7 @@ def calc_logging_level(verbosity):
     return level
 
 
-def main():
+def parse_args():
     # 参数解析
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="=====loafer v0.01====="
@@ -64,18 +77,23 @@ def main():
                         help='show the version',
                         default=False)
     options = parser.parse_args()
+    if options.target_url is None:
+        parser.print_help()
+        sys.exit()
+    return options
 
+
+def main():
+    # 参数解析
+    options = parse_args()
     # 引入日志模块
     logging.basicConfig(level=calc_logging_level(options.verbose))
     log = logging.getLogger(__name__)
 
-    print(f'Target Url: {options.target_url}')
+    # print(f'Target Url: {options.target_url}')
     target = options.target_url
-    if target is None:
-        log.info('Target not given')
-        print(f'Example: loafer.py -t http://www.victim.org/')
-        sys.exit()
-    elif not target.startswith('http'):
+
+    if not target.startswith('http'):
         log.info('The url %s should start with http:// or https:// .. fixing (might make this unusable)' % target)
         target = 'https://' + target
 
@@ -91,8 +109,8 @@ def main():
     # 确认用户输入的域名存在
     if detector.rq is None:
         log.error('Site %s appears to be down' % hostname)
-    req = detector.siblings_request()
-    print (req.text)
+    res = detector.vt_sibling_res()
+    print(res)
 
 
 #

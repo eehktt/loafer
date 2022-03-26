@@ -48,10 +48,16 @@ def get_vt_censor(index):
     return base64.b64encode(bytes(encode_str, 'utf-8')).decode("utf-8")
 
 
-def get_vt_siblings(url, limit, index):
+def get_vt_siblings_url(url, limit, index):
     cursor = get_vt_censor(index)
     vt_sb_url = "https://www.virustotal.com/api/v3/domains/" \
                 "{}/relationships/siblings?" \
                 "limit={}&" \
                 "cursor={}".format(url, limit, cursor)
     return vt_sb_url
+
+
+def get_urls_from_vt(html):
+    pattern = re.compile('"id": "(.*?)"', re.S)
+    urls = re.findall(pattern, html)
+    return urls
