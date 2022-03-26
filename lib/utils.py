@@ -47,3 +47,11 @@ def get_vt_censor(index):
     encode_str = "I" + index + "\n."
     return base64.b64encode(bytes(encode_str, 'utf-8')).decode("utf-8")
 
+
+def get_vt_siblings(url, limit, index):
+    cursor = get_vt_censor(index)
+    vt_sb_url = "https://www.virustotal.com/api/v3/domains/" \
+                "{}/relationships/siblings?" \
+                "limit={}&" \
+                "cursor={}".format(url, limit, cursor)
+    return vt_sb_url

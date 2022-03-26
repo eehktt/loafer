@@ -2,8 +2,9 @@ import argparse
 import logging
 import sys
 
+import settings
 from lib.lf_engine import LoaferEngine
-from lib.utils import url_parser
+from lib.utils import url_parser, get_vt_siblings
 
 
 class LOAFER(LoaferEngine):
@@ -15,6 +16,16 @@ class LOAFER(LoaferEngine):
         return self.lf_request()
 
     def custom_request(self, headers=None):
+        return self.lf_request(headers=headers)
+
+    def siblings_request(self):
+        (hostname, _, path, _, _)=url_parser(self.target)
+        self.target = get_vt_siblings(hostname, 10, '40')
+
+        headers = {
+            "x-apikey": settings.VT_API_KEY,
+            'Accept': 'application/json',
+        }
         return self.lf_request(headers=headers)
 
 
@@ -47,7 +58,7 @@ def main():
     parser.add_argument('--verbose',
                         dest='verbose',
                         default=0,
-                        help='Enable verbosity, multiple -v options increase verbosity')
+                        help='Enable verbosity, multiple --verbose options increase verbosity')
     parser.add_argument('--debug', '-d',
                         action='store_true',
                         help='show the version',
@@ -67,7 +78,7 @@ def main():
     elif not target.startswith('http'):
         log.info('The url %s should start with http:// or https:// .. fixing (might make this unusable)' % target)
         target = 'https://' + target
-    #print('[*] Checking %s' % target)
+
     print('[*] Checking {}'.format(target))
     pretty = url_parser(target)
     if pretty is None:
@@ -77,9 +88,12 @@ def main():
 
     # 探测器
     detector = LOAFER(target, debug_level=options.verbose, follow_redirect=options.follow_redirect)
+    # 确认用户输入的域名存在
     if detector.rq is None:
         log.error('Site %s appears to be down' % hostname)
-    detector.normal_request()
+    req = detector.siblings_request()
+    print (req.text)
+
 
 #
 if __name__ == '__main__':
